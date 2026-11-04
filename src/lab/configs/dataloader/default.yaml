@@ -1,0 +1,21 @@
+train:
+  _target_: torch.utils.data.DataLoader
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  shuffle: true
+  drop_last: true
+  collate_fn:
+    _target_: lab.dataset.utils.list_collate_fn
+    _partial_: true
+
+val:
+  _target_: torch.utils.data.DataLoader
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  shuffle: false
+  drop_last: false
+  collate_fn:
+    _target_: lab.dataset.utils.list_collate_fn
+    _partial_: true

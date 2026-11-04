@@ -1,0 +1,17 @@
+train:
+  _target_: lab.dataset.vinbigdata.VinBigDataDataset
+  split: train
+  fold: 0
+  size: 512 # downloaded dataset size, see scripts/download_vinbigdata.py
+  min_agree: 0.0 # 0.6 keeps only the boxes marked by >= 2 of 3 radiologists
+  shuffle_index: true
+  instance_transforms: ${transforms.instance_transforms.train}
+
+val:
+  _target_: lab.dataset.vinbigdata.VinBigDataDataset
+  split: val
+  fold: ${dataset.train.fold}
+  size: ${dataset.train.size}
+  min_agree: 0.0
+  shuffle_index: false
+  instance_transforms: ${transforms.instance_transforms.inference}

@@ -1,0 +1,10 @@
+_target_: lab.model.faster_rcnn.FasterRCNNModel
+num_classes: 14
+img_size: ${dataset.train.size} # input size of the detector (images are resized to it); by default the dataset size
+trainable_backbone_layers: 5 # 0 = frozen backbone ... 5 = everything is trained
+score_thresh: 0.001
+max_detections: 300
+small_anchors: false
+freeze_bn: false # true: frozen BatchNorm (COCO statistics), for small batches
+backbone_lr_mult: 1.0 # learning rate of the ResNet backbone relative to optimizer.lr (e.g. 0.1)
+layer_lr_decay: 1.0 # extra multiplier per ResNet stage towards the input (e.g. 0.8), 1.0 = off

@@ -1,0 +1,17 @@
+# Applied to a whole instance (image and boxes together), see lab.dataset.transforms
+train:
+  _target_: lab.dataset.transforms.DetectionTransform
+  compose:
+    _target_: albumentations.Compose
+    _convert_: all
+    transforms:
+      - _target_: albumentations.HorizontalFlip
+        p: 0.5
+    bbox_params:
+      _target_: albumentations.BboxParams
+      format: pascal_voc # xyxy in pixels
+      label_fields: [labels]
+      clip: true
+      min_visibility: 0.0
+
+inference: null

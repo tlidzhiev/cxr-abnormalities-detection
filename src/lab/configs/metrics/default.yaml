@@ -1,0 +1,6 @@
+train: []
+inference:
+  - _target_: lab.metrics.map.MeanAveragePrecision
+    name: mAP40
+    num_classes: 14
+    iou_threshold: 0.4

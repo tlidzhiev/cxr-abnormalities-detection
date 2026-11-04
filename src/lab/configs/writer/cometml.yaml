@@ -1,0 +1,13 @@
+_target_: lab.logger.cometml.CometMLWriter
+project_name: cxr-abnormalities-detection
+exp_name: test # name of the experiment; its runs on different folds are next to each other in log_dir
+run_name: ${writer.exp_name}_fold${dataset.train.fold}
+workspace: null # your cometml username or team name
+run_id: null # set to resume a specific run
+id_length: 32 # length of the generated run id (Comet requires 32-50 alphanumeric chars)
+mode: offline # online, offline
+log_code: false
+log_graph: false
+auto_metric_logging: false
+auto_param_logging: false
+log_dir: logs/${writer.project_name}/${writer.run_name}

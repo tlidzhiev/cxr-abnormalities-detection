@@ -1,0 +1,21 @@
+hydra:
+  run:
+    dir: data/saved/${inferencer.save_path}
+
+defaults:
+  - _self_
+  - dataset: vinbigdata
+  - dataloader: default
+  - transforms: default
+  - model: faster_rcnn
+  - metrics: default
+
+inferencer:
+  device_tensors: ["img", "boxes", "labels"]
+  device: "auto"  # device name or "auto"
+  amp: null  # null (full precision), "bfloat16" or "float16"
+  compile: null  # null (eager) or torch.compile kwargs, e.g. {mode: default, fullgraph: false}
+  seed: 42
+  from_pretrained: null  # path to the model checkpoint (*.pth file)
+  use_ema: false  # load EMA (shadow) weights (needs a checkpoint trained with trainer.ema)
+  save_path: "default"  # predictions saved to data/saved/{save_path}/{partition}/

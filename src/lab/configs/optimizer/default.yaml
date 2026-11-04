@@ -1,0 +1,4 @@
+_target_: torch.optim.SGD
+lr: 2.0e-2 # 0.02 * batch_size / 16 (batch size 16)
+momentum: 0.9
+weight_decay: 1.0e-4

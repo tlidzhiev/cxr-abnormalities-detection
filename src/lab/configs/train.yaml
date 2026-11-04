@@ -1,0 +1,39 @@
+hydra:
+  run:
+    dir: ${writer.log_dir}
+
+defaults:
+  - _self_
+  - dataset: vinbigdata
+  - dataloader: default
+  - transforms: default
+  - model: faster_rcnn
+  - criterion: detection
+  - metrics: default
+  - optimizer: default
+  - lr_scheduler: cosine
+  - writer: cometml
+
+trainer:
+  log_step: 100 # optimizer steps between train logs
+  log_images: 4 # images in the logged grid of predictions
+  debug: false # true to measure data_time / step_time (synchronizes CUDA at each step)
+  total_steps: 18000 # total optimizer steps (24 epochs of 750 steps at batch size 16)
+  eval_every_steps: 750 # validation frequency; also defines metric reporting windows
+  device_tensors: ["img", "boxes", "labels"]
+  resume_from: null # null or checkpoint file name inside checkpoint_dir (*.pth)
+  from_pretrained: null # null or path to the model checkpoint (*.pth file)
+  device: "auto" # device name or "auto"
+  monitor: "max val_mAP40" # "off" or "max/min metric_name"
+  checkpoint_every_steps: 750 # periodic checkpoint frequency
+  only_best: false # true to save only model-best.pth (requires monitor)
+  early_stop: null # evaluations without improvement before stopping
+  override: false # overwrite an existing run dir with the same writer.run_name
+  skip_oom: true
+  max_grad_norm: 10
+  grad_accum_steps: 1 # batches per optimizer step (effective batch size = batch_size * grad_accum_steps)
+  amp: "bfloat16" # null (full precision), "bfloat16" or "float16" (with GradScaler); null on CPU/MPS
+  compile: null # null (eager) or torch.compile kwargs, e.g. {mode: default, fullgraph: false}
+  checkpoint_dir: ${writer.log_dir}/checkpoints
+  seed: 42
+  ema: null # or {decay: 0.999, update_every: 1, warmup_steps: 0}
