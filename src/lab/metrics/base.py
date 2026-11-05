@@ -25,6 +25,19 @@ class BaseMetric:
         """
         raise NotImplementedError(f'{type(self).__name__} must implement compute method.')
 
+    @property
+    def result_names(self) -> list[str]:
+        """
+        Names of all the values returned by 'compute_all' (the metric name by default).
+        """
+        return [self.name]
+
+    def compute_all(self) -> dict[str, float | torch.Tensor]:
+        """
+        Compute all the values of the metric (a metric can report several, e.g. per class).
+        """
+        return {self.name: self.compute()}
+
     def reset(self) -> None:
         """
         Reset the accumulated metric state.

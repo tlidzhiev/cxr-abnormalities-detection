@@ -84,7 +84,13 @@ def get_dataloaders(
                 f'be larger than the dataset length ({len(dataset)})'
             )
 
-        partition_dataloader = instantiate(config.dataloader[partition], dataset=dataset)
+        loader_cfg = config.dataloader[partition]
+        extra = {}
+        if loader_cfg.get('sampler') is not None:
+            # Hydra cannot pass the dataset to a nested config: the sampler is a partial
+            # called with the dataset here (and the sampler replaces shuffling)
+            extra = {'sampler': instantiate(loader_cfg.sampler)(dataset), 'shuffle': False}
+        partition_dataloader = instantiate(loader_cfg, dataset=dataset, **extra)
         dataloaders[partition] = partition_dataloader
 
     return dataloaders, batch_transforms

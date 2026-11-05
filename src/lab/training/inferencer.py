@@ -84,7 +84,7 @@ class Inferencer:
         # Define metrics
         self.metrics = metrics
         self.eval_metric_tracker = MetricTracker(
-            *[m.name for m in self.metrics['inference']],
+            *[n for m in self.metrics['inference'] for n in m.result_names],
         )
 
         if not skip_model_load:
@@ -146,7 +146,8 @@ class Inferencer:
 
         # Metrics are accumulated over all batches and computed once per partition
         for met in self.metrics['inference']:
-            self.eval_metric_tracker.update(met.name, met.compute())
+            for name, value in met.compute_all().items():
+                self.eval_metric_tracker.update(name, value)
             met.reset()
 
         return self.eval_metric_tracker.result()

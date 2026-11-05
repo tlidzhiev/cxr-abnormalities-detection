@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import numpy as np
@@ -12,6 +13,7 @@ class MeanAveragePrecision(BaseMetric):
         self,
         num_classes: int = 14,
         iou_threshold: float = 0.4,
+        class_names: list[str] | None = None,
         name: str | None = None,
     ) -> None:
         """
@@ -27,12 +29,21 @@ class MeanAveragePrecision(BaseMetric):
             Number of the classes (labels are 0..num_classes-1, no background).
         iou_threshold : float, optional
             IoU threshold of a true positive.
+        class_names : list[str] or None, optional
+            Class names for the per-class results 'AP{iou}_{class}' (class ids if None).
         name : str or None, optional
             Metric name.
         """
         super().__init__(name=name)
         self.num_classes = num_classes
         self.iou_threshold = iou_threshold
+        names = class_names if class_names is not None else [str(c) for c in range(num_classes)]
+        assert len(names) == num_classes, 'One name per class is needed.'
+        # 'Nodule/Mass' -> 'AP40_nodule_mass'
+        prefix = f'AP{round(iou_threshold * 100)}'
+        self._class_keys = [
+            f'{prefix}_' + re.sub(r'[^0-9a-zA-Z]+', '_', n).strip('_').lower() for n in names
+        ]
         self._preds: dict[str, dict[str, np.ndarray]] = {}
         self._gts: dict[str, dict[str, np.ndarray]] = {}
         # AP of each class from the last 'compute'
@@ -79,6 +90,20 @@ class MeanAveragePrecision(BaseMetric):
             num_classes=self.num_classes,
         )
         return value
+
+    @property
+    def result_names(self) -> list[str]:
+        return [self.name, *self._class_keys]
+
+    def compute_all(self) -> dict[str, float]:
+        """
+        mAP and AP of each class. A class without ground truth in the data has no AP and is
+        not reported.
+        """
+        results = {self.name: self.compute()}
+        for c, ap in self.class_ap.items():
+            results[self._class_keys[c]] = ap
+        return results
 
     def reset(self) -> None:
         """

@@ -5,6 +5,11 @@ train:
   pin_memory: true
   shuffle: true
   drop_last: true
+  sampler:
+    _target_: lab.dataset.samplers.NormalFractionSampler
+    _partial_: true
+    normal_frac: 0.3 # share of the images without findings in an epoch (null = natural, ~0.7)
+    seed: 42
   collate_fn:
     _target_: lab.dataset.utils.list_collate_fn
     _partial_: true

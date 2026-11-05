@@ -118,6 +118,12 @@ class VinBigDataDataset(BaseDataset):
             instance_transforms=instance_transforms,
         )
 
+    def is_background(self) -> list[bool]:
+        """
+        A flag per element: True if the image has no boxes (after the 'min_agree' filter).
+        """
+        return [len(entry['boxes']) == 0 for entry in self._index]
+
     def load_instance(self, entry: dict[str, Any]) -> dict[str, Any]:
         """
         Load the image and scale the normalized boxes to its pixels.

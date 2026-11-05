@@ -4,3 +4,19 @@ inference:
     name: mAP40
     num_classes: 14
     iou_threshold: 0.4
+    # per-class AP is logged as AP40_<class>
+    class_names:
+      - Aortic enlargement
+      - Atelectasis
+      - Calcification
+      - Cardiomegaly
+      - Consolidation
+      - ILD
+      - Infiltration
+      - Lung Opacity
+      - Nodule/Mass
+      - Other lesion
+      - Pleural effusion
+      - Pleural thickening
+      - Pneumothorax
+      - Pulmonary fibrosis

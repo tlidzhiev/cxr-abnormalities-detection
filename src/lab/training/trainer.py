@@ -31,7 +31,9 @@ class Trainer(BaseTrainer):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # No losses in eval mode, so only the metrics are tracked on the validation
-        self.eval_metric_tracker = MetricTracker(*[m.name for m in self.metrics['inference']])
+        self.eval_metric_tracker = MetricTracker(
+            *[n for m in self.metrics['inference'] for n in m.result_names]
+        )
         self.classes: list[str] | None = getattr(self.train_loader.dataset, 'classes', None)
 
     def process_batch(self, batch: dict[str, Any], part: str) -> dict[str, Any]:

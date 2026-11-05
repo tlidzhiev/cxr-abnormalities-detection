@@ -185,11 +185,11 @@ class BaseTrainer:
             *self.criterion.loss_names,
             'grad_norm',
             *self.timer.metric_names,
-            *[m.name for m in self.metrics['train']],
+            *[n for m in self.metrics['train'] for n in m.result_names],
         )
         self.eval_metric_tracker = MetricTracker(
             *self.criterion.loss_names,
-            *[m.name for m in self.metrics['inference']],
+            *[n for m in self.metrics['inference'] for n in m.result_names],
         )
 
         # Define dataloaders
@@ -399,7 +399,8 @@ class BaseTrainer:
 
         # Metrics are accumulated over all batches, so batch sizes are weighted correctly
         for met in self.metrics['inference']:
-            self.eval_metric_tracker.update(met.name, met.compute())
+            for name, value in met.compute_all().items():
+                self.eval_metric_tracker.update(name, value)
             met.reset()
 
         elapsed = time.perf_counter() - start_time

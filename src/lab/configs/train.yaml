@@ -18,7 +18,7 @@ trainer:
   log_step: 100 # optimizer steps between train logs
   log_images: 4 # images in the logged grid of predictions
   debug: false # true to measure data_time / step_time (synchronizes CUDA at each step)
-  total_steps: 18000 # total optimizer steps (24 epochs of 750 steps at batch size 16)
+  total_steps: 18000 # total optimizer steps (about 57 sampler epochs of ~314 steps at batch size 16)
   eval_every_steps: 750 # validation frequency; also defines metric reporting windows
   device_tensors: ["img", "boxes", "labels"]
   resume_from: null # null or checkpoint file name inside checkpoint_dir (*.pth)
