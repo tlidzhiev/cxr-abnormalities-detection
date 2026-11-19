@@ -37,7 +37,7 @@ trainer:
   # Hardware and numerics
   device: "auto" # device name or "auto"
   device_tensors: ["img", "boxes", "labels"]
-  use_bfloat16: false # bf16 rounds the box coordinates of torchvision's box coder (2 px at 256-512)
+  use_bfloat16: true # bf16 autocast for the convolutions; box geometry stays float32 (see FasterRCNNModel)
   use_tf32: true # TF32 tensor cores for fp32 matmul/conv on Ampere+ (L4)
   compile: null # null (eager) or torch.compile kwargs of the dense parts of the model, e.g. {fullgraph: true}
   skip_oom: true

@@ -30,6 +30,23 @@ def _freeze_batchnorm(module: nn.Module) -> None:
             _freeze_batchnorm(child)
 
 
+def _to_float32(output):
+    """
+    Cast the low precision floating tensors of a (nested) module output to float32.
+    """
+    if isinstance(output, torch.Tensor):
+        if output.dtype in (torch.bfloat16, torch.float16):
+            return output.float()
+        return output
+    if isinstance(output, (list, tuple)):
+        return type(output)(_to_float32(o) for o in output)
+    return output
+
+
+def _float32_output_hook(module: nn.Module, args, output):
+    return _to_float32(output)
+
+
 class FasterRCNNModel(BaseModel):
     def __init__(
         self,
@@ -65,6 +82,19 @@ class FasterRCNNModel(BaseModel):
                 sizes=((16,), (32,), (64,), (128,), (256,)),
                 aspect_ratios=((0.5, 1.0, 2.0),) * 5,
             )
+
+        # Box geometry in float32 under autocast (bf16 AMP): torchvision makes the anchors in
+        # the dtype of the feature maps and decodes the boxes in the dtype of the predicted
+        # deltas, so with bf16 (8-bit mantissa) the coordinates of the anchors, proposals,
+        # regression targets and detections would be rounded to 2 px at 256-512. Casting
+        # these outputs keeps the convolutions in bf16 and the box coding, losses and NMS in
+        # float32. A no-op in float32; hooks do not change the state_dict keys.
+        for module in (
+            self.detector.rpn.anchor_generator,
+            self.detector.rpn.head,
+            self.detector.roi_heads.box_predictor,
+        ):
+            module.register_forward_hook(_float32_output_hook)
 
     def forward(
         self,
