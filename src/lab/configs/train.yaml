@@ -4,26 +4,26 @@ hydra:
 
 defaults:
   - _self_
-  - dataset: mnist
+  - dataset: vinbigdata
   - dataloader: default
   - transforms: default
-  - model: baseline
-  - criterion: ce
+  - model: faster_rcnn
+  - criterion: ${model}
   - metrics: default
   - optimizer: default
-  - lr_scheduler: cosine
+  - lr_scheduler: default
   - writer: cometml
 
 trainer:
   # Steps
-  total_steps: 10000 # total optimizer steps
-  eval_every_steps: 1000 # validation frequency; also defines metric reporting windows
-  checkpoint_every_steps: 1000 # periodic checkpoint frequency
+  total_steps: 12000 # total optimizer steps (about 38 sampler epochs of ~314 steps at batch size 16)
+  eval_every_steps: 500 # validation frequency; also defines metric reporting windows
+  checkpoint_every_steps: 2000 # periodic checkpoint frequency (~0.5 GB each with EMA)
   grad_accum_steps: 1 # batches per optimizer step (effective batch size = batch_size * grad_accum_steps)
 
   # Logging
   log_step: 100 # optimizer steps between train logs
-  log_images: 16 # images in the logged grid of predictions
+  log_images: 4 # images in the logged grid of predictions
   debug: false # true to measure data_time / step_time (synchronizes CUDA at each step)
 
   # Checkpoints
@@ -31,17 +31,17 @@ trainer:
   resume_from: null # null or checkpoint file name inside checkpoint_dir (*.pth)
   from_pretrained: null # null or path to the model checkpoint (*.pth file)
   only_best: false # true to save only model-best.pth (requires monitor)
-  monitor: "off" # "off" or "max/min metric_name"
+  monitor: "max val_mAP40" # "off" or "max/min metric_name"
   early_stop: null # evaluations without improvement before stopping
 
   # Hardware and numerics
   device: "auto" # device name or "auto"
-  device_tensors: ["img", "label"]
-  use_bfloat16: false
-  use_tf32: true # TF32 for fp32 matmul/conv on Ampere+ (faster, ~1e-3 rel. error); false = full fp32
-  compile: null # null (eager) or torch.compile kwargs, e.g. {mode: default, fullgraph: false}
+  device_tensors: ["img", "boxes", "labels"]
+  use_bfloat16: false # bf16 rounds the box coordinates of torchvision's box coder (2 px at 256-512)
+  use_tf32: true # TF32 tensor cores for fp32 matmul/conv on Ampere+ (L4)
+  compile: null # null (eager) or torch.compile kwargs of the dense parts of the model, e.g. {fullgraph: true}
   skip_oom: true
-  max_grad_norm: null
+  max_grad_norm: 10
 
   # Run
   seed: 42
@@ -49,4 +49,4 @@ trainer:
   ema:
     decay: 0.999
     update_every: 1
-    warmup_steps: 0 # steps with linearly increasing decay (0 = disabled)
+    warmup_steps: 1000 # steps with linearly increasing decay (0 = disabled)

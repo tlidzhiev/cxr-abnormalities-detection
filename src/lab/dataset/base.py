@@ -2,8 +2,6 @@ import random
 from collections.abc import Callable
 from typing import Any
 
-import safetensors.torch
-import torch
 from torch.utils.data import Dataset
 
 
@@ -12,7 +10,8 @@ class BaseDataset(Dataset):
     Base class for the datasets.
 
     Given an index (list of dicts), processes different datasets for the same
-    task in the identical manner. A subclass only has to build the index.
+    task in the identical manner. A subclass has to build the index and to implement
+    'load_instance'.
     """
 
     def __init__(
@@ -20,7 +19,7 @@ class BaseDataset(Dataset):
         index: list[dict[str, Any]],
         limit: int | None = None,
         shuffle_index: bool = False,
-        instance_transforms: dict[str, Callable] | None = None,
+        instance_transforms: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     ) -> None:
         """
         Parameters
@@ -31,8 +30,9 @@ class BaseDataset(Dataset):
             If not None, keep only the first 'limit' elements.
         shuffle_index : bool, optional
             Shuffle the index with a fixed seed (42).
-        instance_transforms : dict[str, Callable] or None, optional
-            Transforms applied to an instance, by tensor name.
+        instance_transforms : Callable or None, optional
+            Transform applied to a whole instance (dict -> dict), so that it can change
+            several fields together, e.g. an image and its boxes.
         """
         self._assert_index_is_valid(index)
 
@@ -45,34 +45,27 @@ class BaseDataset(Dataset):
         """
         Load an element, preprocess it, and combine it into a dict.
 
-        The key names ('img', 'label') must stay consistent across the dataset,
-        collate_fn, loss and model.
+        The key names must stay consistent across the dataset, collate_fn, loss and model.
         """
-        data_dict = self._index[index]
-        data_path = data_dict['path']
-        data_object = self.load_object(data_path)
-        instance_data = {'img': data_object, 'label': data_dict['label']}
+        instance_data = self.load_instance(self._index[index])
         instance_data = self.preprocess_data(instance_data)
         return instance_data
 
     def __len__(self) -> int:
         return len(self._index)
 
-    def load_object(self, path: str) -> torch.Tensor:
+    def load_instance(self, entry: dict[str, Any]) -> dict[str, Any]:
         """
-        Load a tensor from disk.
+        Load an element described by an index entry into a dict of data.
         """
-        raw = safetensors.torch.load_file(path)['img']
-        return raw
+        raise NotImplementedError(f'{type(self).__name__} must implement load_instance method.')
 
     def preprocess_data(self, instance_data: dict[str, Any]) -> dict[str, Any]:
         """
-        Apply instance transforms to the tensors by name.
+        Apply the instance transform to the whole instance.
         """
         if self.instance_transforms is not None:
-            for name, transform in self.instance_transforms.items():
-                if name in instance_data:
-                    instance_data[name] = transform(instance_data[name])
+            instance_data = self.instance_transforms(instance_data)
         return instance_data
 
     @staticmethod

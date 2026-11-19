@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from itertools import repeat
+from typing import Any
 
 import torch
 from hydra.utils import instantiate
@@ -7,6 +8,7 @@ from omegaconf import DictConfig
 from torch import nn
 from torch.utils.data import DataLoader, IterableDataset
 
+from lab.dataset.samplers import NormalFractionSampler
 from lab.utils.init import set_worker_seed
 
 
@@ -16,6 +18,16 @@ def inf_loop(dataloader: DataLoader) -> Generator:
     """
     for loader in repeat(dataloader):
         yield from loader
+
+
+def list_collate_fn(batch: list[dict[str, Any]]) -> dict[str, list[Any]]:
+    """
+    Collate instances into a dict of lists (no stacking).
+
+    Needed when elements of a batch have different shapes, e.g. a different number
+    of boxes per image.
+    """
+    return {key: [instance[key] for instance in batch] for key in batch[0]}
 
 
 def _to_device(batch_transforms: dict[str, dict[str, nn.Sequential]], device: str) -> None:
@@ -75,12 +87,16 @@ def get_dataloaders(
 
         is_train = partition == 'train'
         num_workers = config.dataloader[partition].get('num_workers', 0)
+        # Train: 30% of the images without findings in each pass, shuffled (an iterable
+        # dataset defines its own order)
+        sampler = None
+        if is_train and not isinstance(dataset, IterableDataset):
+            sampler = NormalFractionSampler(dataset, normal_frac=0.3)
         dataloaders[partition] = DataLoader(
             dataset,
             **config.dataloader[partition],
-            num_workers=num_workers,
-            # an iterable dataset defines its own order
-            shuffle=is_train and not isinstance(dataset, IterableDataset),
+            sampler=sampler,
+            collate_fn=list_collate_fn,
             drop_last=is_train,
             pin_memory=torch.device(device).type == 'cuda',
             persistent_workers=num_workers > 0,

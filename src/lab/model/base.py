@@ -6,6 +6,23 @@ class BaseModel(nn.Module):
     Base class for all models.
     """
 
+    def get_param_groups(self, base_lr: float) -> list[dict]:
+        """
+        Parameter groups of the optimizer: a model can give its parts different learning rates.
+
+        Parameters
+        ----------
+        base_lr : float
+            Learning rate of the optimizer ('optimizer.lr' in the config).
+
+        Returns
+        -------
+        list[dict]
+            Groups with the 'params' and the 'lr' of each one (all the trainable parameters
+            with the base learning rate by default).
+        """
+        return [{'params': [p for p in self.parameters() if p.requires_grad], 'lr': base_lr}]
+
     def __str__(self) -> str:
         """
         Model prints with the number of parameters.

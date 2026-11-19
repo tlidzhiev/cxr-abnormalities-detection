@@ -4,19 +4,20 @@ hydra:
 
 defaults:
   - _self_
-  - dataset: mnist_test
+  - dataset: vinbigdata
   - dataloader: default
   - transforms: default
-  - model: baseline
+  - model: faster_rcnn
   - metrics: default
 
 inferencer:
-  device_tensors: ["img", "label"]
+  device_tensors: ["img", "boxes", "labels"]
   device: "auto"  # device name or "auto"
   use_bfloat16: false
-  use_tf32: true  # TF32 for fp32 matmul/conv on Ampere+ (faster, ~1e-3 rel. error); false = full fp32
-  compile: null  # null (eager) or torch.compile kwargs, e.g. {mode: default, fullgraph: false}
+  use_tf32: true  # TF32 for fp32 matmul/conv on Ampere+ (L4)
+  compile: null  # null (eager) or torch.compile kwargs of the dense parts of the model, e.g. {fullgraph: true}
   seed: 42
   from_pretrained: null  # path to the model checkpoint (*.pth file)
   use_ema: true  # load EMA (shadow) weights from checkpoint instead of raw weights
+  partitions: null  # null (all of dataset) or a list, e.g. [test] for a submission
   save_path: "default"  # predictions saved to data/saved/{save_path}/{partition}/

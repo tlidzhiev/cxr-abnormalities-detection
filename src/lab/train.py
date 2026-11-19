@@ -43,9 +43,10 @@ def main(config: DictConfig) -> None:
     model = instantiate(config.model).to(device)
     logger.info(f'Model:\n{model}')
 
-    optimizer = instantiate(
-        config.optimizer,
-        params=[p for p in model.parameters() if p.requires_grad],
+    # Hydra turns dict arguments into configs, so the optimizer is created as a partial and
+    # called with the parameter groups (dicts) afterwards
+    optimizer = instantiate(config.optimizer, _partial_=True)(
+        params=model.get_param_groups(base_lr=config.optimizer.lr),
     )
     logger.info(f'Optimizer:\n{optimizer}')
     lr_scheduler = get_lr_scheduler(

@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from lab.metrics.base import BaseMetric
 from lab.metrics.tracker import MetricTracker
 from lab.model.base import BaseModel
-from lab.utils.io import get_root
+from lab.utils.io import get_root, write_json
 
 from .runner import BaseRunner
 
@@ -20,7 +20,14 @@ logger = logging.getLogger(__name__)
 
 class Inferencer(BaseRunner):
     """
-    Evaluates the model on the dataset and saves predictions, without optimizers and writers.
+    Evaluates the detection model on the dataset and saves predictions, without optimizers
+    and writers.
+
+    For each partition the predictions are saved to '{save_path}/{partition}/predictions.json':
+    {image_id: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [...], 'labels': [...]}} with
+    the boxes normalized to [0, 1] by the image size (so they do not depend on the input
+    size) and the labels in 0..num_classes-1. The 'test' partition has no ground truth, so
+    only its predictions are saved (no metrics).
     """
 
     def __init__(
@@ -50,7 +57,8 @@ class Inferencer(BaseRunner):
         save_path : Path or str
             Directory to save predictions to.
         batch_transforms : dict[str, dict[str, nn.Sequential]]
-            Transforms applied to the whole batch, by tensor name.
+            Not supported for detection (images of a batch are separate tensors), kept for
+            the interface of the entrypoint.
         skip_model_load : bool, optional
             Skip loading model weights from the checkpoint.
         """
@@ -69,15 +77,22 @@ class Inferencer(BaseRunner):
             use_bfloat16=self.cfg_inferencer.get('use_bfloat16', False),
         )
 
-        self.eval_dataloaders = {k: v for k, v in dataloaders.items() if k != 'train'}
-        self._sample_offset = 0  # index of the next saved sample in the current partition
+        # 'inferencer.partitions' (optional) selects the partitions to run, e.g. [test]
+        partitions = self.cfg_inferencer.get('partitions')
+        self.eval_dataloaders = {
+            k: v
+            for k, v in dataloaders.items()
+            if k != 'train' and (partitions is None or k in partitions)
+        }
+        assert self.eval_dataloaders, f'No partitions to run (inferencer.partitions={partitions}).'
 
         # Path definition
         self.save_path = get_root() / save_path
 
         # Define metrics
+        self.metrics = metrics
         self.eval_metric_tracker = MetricTracker(
-            *[m.name for m in self.metrics['inference']],
+            *[n for m in self.metrics['inference'] for n in m.result_names],
         )
 
         if not skip_model_load:
@@ -117,16 +132,23 @@ class Inferencer(BaseRunner):
         self.model.eval()
         self.eval_metric_tracker.reset()
 
-        self._sample_offset = 0
+        self._predictions: dict[str, dict[str, list]] = {}
 
         # Create save dir
         (self.save_path / part).mkdir(exist_ok=True, parents=True)
 
-        for batch in tqdm(dataloader, desc=part):
+        for batch in tqdm(dataloader, desc=part, total=len(dataloader)):
             self.process_batch(batch=batch, part=part)
 
+        write_json(self._predictions, self.save_path / part / 'predictions.json')
+
+        if part == 'test':
+            return {}
+
+        # Metrics are accumulated over all batches and computed once per partition
         for met in self.metrics['inference']:
-            self.eval_metric_tracker.update(met.name, met.compute())
+            for name, value in met.compute_all().items():
+                self.eval_metric_tracker.update(name, value)
             met.reset()
 
         return self.eval_metric_tracker.result()
@@ -141,29 +163,21 @@ class Inferencer(BaseRunner):
             outputs = self.model(**batch)
         batch.update(outputs)
 
-        for met in self.metrics['inference']:
-            met.update(**batch)
+        if part != 'test':  # the test partition has no ground truth
+            for met in self.metrics['inference']:
+                met.update(**batch)
 
-        # Some saving logic. This is an example
-        # Use if you need to save predictions on disk
-
-        batch_size = batch['logits'].shape[0]
-        current_id = self._sample_offset
-        self._sample_offset += batch_size
-
-        for i in range(batch_size):
-            # Clone because of https://github.com/pytorch/pytorch/issues/1995
-            logits = batch['logits'][i].clone()
-            label = batch['label'][i].clone()
-            pred_label = logits.argmax(dim=-1)
-
-            output_id = current_id + i
-            output = {
-                'pred_label': pred_label,
-                'label': label,
+        for img, det, image_id in zip(
+            batch['img'], batch['detections'], batch['image_id'], strict=True
+        ):
+            h, w = img.shape[-2:]
+            # float64 on the CPU: MPS does not support it
+            scale = torch.tensor([w, h, w, h], dtype=torch.float64)
+            boxes = (det['boxes'].cpu().double() / scale).clamp(0, 1)
+            self._predictions[image_id] = {
+                'boxes': boxes.round(decimals=5).tolist(),
+                'scores': det['scores'].cpu().double().round(decimals=4).tolist(),
+                'labels': det['labels'].cpu().tolist(),
             }
-
-            # You can use safetensors or other lib here
-            torch.save(output, self.save_path / part / f'output_{output_id}.pth')
 
         return batch

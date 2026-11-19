@@ -1,16 +1,16 @@
-# Research Project Template
+# CXR Abnormalities Detection
 
 <p align="center">
   <a href="#about">About</a> •
   <a href="#installation">Installation</a> •
+  <a href="#data">Data</a> •
   <a href="#how-to-use">How To Use</a> •
-  <a href="#examples">Examples</a> •
   <a href="#credits">Credits</a>
 </p>
 
 ## About
 
-This repository is a template for PyTorch research projects. It provides Hydra-based configs, a trainer with EMA, mixed precision (AMP), gradient accumulation, checkpointing, resuming and early stopping, an inferencer, and CometML experiment tracking. MNIST classification with a small MLP is included as a working example.
+Detection of abnormalities on chest X-ray images (VinBigData / VinDr-CXR, 14 finding classes). Every image is annotated by three radiologists, so the boxes are merged with Weighted Boxes Fusion before training and the box score is the fraction of radiologists who agree on it. The detector is a torchvision Faster R-CNN v2 (ResNet-50 FPN) initialized from the COCO weights and fine-tuned with k-fold cross-validation. The metric is mAP@0.4, as in the competition.
 
 ## Installation
 
@@ -22,8 +22,8 @@ This repository is a template for PyTorch research projects. It provides Hydra-b
 
 ```bash
 # Clone the repository
-git clone https://github.com/tlidzhiev/research-project-template.git
-cd research-project-template
+git clone https://github.com/tlidzhiev/cxr-abnormalities-detection.git
+cd cxr-abnormalities-detection
 
 # Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -39,6 +39,12 @@ uv sync --all-groups
 pre-commit install
 ```
 
+The scripts that download and process the data need extra packages (kagglehub, pandas). They are in the `download` dependency group, which is already included in `--all-groups`; to install only it:
+
+```bash
+uv sync --group download
+```
+
 ### CometML Configuration
 
 CometML is used by default for experiment tracking. Create a `.comet.config` file in the project root:
@@ -52,6 +58,21 @@ project_name=YOUR_PROJECT_NAME
 
 The API key is only needed for online logging: `writer.mode` is `offline` by default.
 
+## Data
+
+Run the scripts in this order. Everything is stored under `data/vinbigdata/`.
+
+```bash
+# 1. Download the resized images and train.csv (Kaggle) -> data/vinbigdata/raw/<size>/
+uv run scripts/download_vinbigdata.py --image-size 512
+
+# 2. Merge the radiologists' boxes (WBF), make the multilabel stratified k-fold split
+#    -> data/vinbigdata/preprocessed/{annotations.json,params.json,summary.txt}
+uv run scripts/preprocess_vinbigdata.py --size 512 --folds 5 --wbf-iou 0.4
+```
+
+`annotations.json` holds one record per image: the fused boxes (normalized to [0, 1], so they do not depend on the image size), the boxes of each radiologist, the soft labels (the fraction of radiologists who marked each class), the `normal` flag and the `fold`. `params.json` stores the hyperparameters of the run and `summary.txt` the class distribution over the folds. Run each script with `--help` for the options.
+
 ## How To Use
 
 To run a script (training or inference), use the following command:
@@ -64,37 +85,27 @@ uv run <script> -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
 - `CONFIG_NAME`: A config file from `src/lab/configs` (`train` and `inference` by default)
 - `HYDRA_CONFIG_ARGUMENTS`: Optional Hydra overrides
 
-MNIST is downloaded and indexed into `data/mnist` on the first run. Runs are saved to `logs/{project_name}/{run_name}`, with checkpoints in the `checkpoints` subdirectory.
+Runs are saved to `logs/{project_name}/{run_name}`, with checkpoints in the `checkpoints` subdirectory.
 
-## Examples
+### Kaggle submission (ensemble of folds)
 
-Train the baseline model with online logging:
-
-```bash
-uv run train writer.run_name=baseline writer.mode=online
-```
-
-Train with the best-checkpoint selection and early stopping on the test accuracy:
+Train a model per fold (`dataset.train.fold` is the held-out fold), predict the test images with
+each model, and merge the predictions (Weighted Boxes Fusion) into `submission.csv`:
 
 ```bash
-uv run train writer.run_name=baseline trainer.monitor="max test_AccuracyMetric" trainer.early_stop=3
+for fold in 0 1 2 3 4; do
+  uv run python -m lab.train writer.exp_name=frcnn dataset.train.fold=$fold
+  uv run python -m lab.inference inferencer.save_path=frcnn_fold$fold 'inferencer.partitions=[test]' \
+    inferencer.from_pretrained=logs/cxr-abnormalities-detection/frcnn_fold$fold/checkpoints/model-best.pth
+done
+
+uv run python scripts/make_submission.py \
+  --predictions data/saved/frcnn_fold{0,1,2,3,4}/test/predictions.json --output submission.csv
 ```
 
-Training runs for `trainer.total_steps` optimizer steps. Validation runs every
-`trainer.eval_every_steps`; periodic checkpoints are written after an evaluation when
-`trainer.checkpoint_every_steps` is reached. A new best checkpoint is saved after any
-evaluation that improves the monitored metric. Resume from a checkpoint of the same run:
-
-```bash
-uv run train writer.run_name=baseline trainer.resume_from=checkpoint-step-1000.pth
-```
-
-Evaluate the best checkpoint with the EMA weights and save the predictions to `data/saved/baseline`:
-
-```bash
-uv run inference inferencer.from_pretrained=logs/research-project-template/baseline/checkpoints/model-best.pth \
-  inferencer.use_ema=true inferencer.save_path=baseline
-```
+Use `'inferencer.partitions=[val,test]'` to also get the validation metrics of the fold. Models of
+different architectures or seeds can be mixed (`--weights` sets their weights); see
+`scripts/make_submission.py --help` for the fusion options.
 
 ## Credits
 

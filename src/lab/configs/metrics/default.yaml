@@ -1,11 +1,22 @@
-device: "auto"
-train:
-  - _target_: lab.metrics.accuracy.AccuracyMetric
-    name: AccuracyMetric
-    num_classes: 10
-    device: ${metrics.device}
+train: []
 inference:
-  - _target_: lab.metrics.accuracy.AccuracyMetric
-    name: AccuracyMetric
-    num_classes: 10
-    device: ${metrics.device}
+  - _target_: lab.metrics.map.MeanAveragePrecision
+    name: mAP40
+    num_classes: 14
+    iou_threshold: 0.4
+    # per-class AP is logged as AP40_<class>
+    class_names:
+      - Aortic enlargement
+      - Atelectasis
+      - Calcification
+      - Cardiomegaly
+      - Consolidation
+      - ILD
+      - Infiltration
+      - Lung Opacity
+      - Nodule/Mass
+      - Other lesion
+      - Pleural effusion
+      - Pleural thickening
+      - Pneumothorax
+      - Pulmonary fibrosis

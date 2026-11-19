@@ -40,6 +40,8 @@ class TrainerConfig:
     # Logging
     log_step: int = 50
     log_images: int = 16
+    log_tile_size: int = 512  # side of a tile of the logged prediction grid, in pixels
+    log_score_thresh: float = 0.3  # min score of the predicted boxes drawn in the grid
     debug: bool = False
 
     # Checkpoints

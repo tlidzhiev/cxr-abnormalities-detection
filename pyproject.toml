@@ -1,26 +1,30 @@
 [project]
-name = "research-project-template"
+name = "cxr-abnormalities-detection"
 version = "0.1.0"
-description = "Template for my research projects"
+description = "Abnormalities detection for Chest X-Ray images"
 readme = "README.md"
 authors = [
     { name = "tlidzhiev", email = "trlidzhiev@gmail.com" }
 ]
 requires-python = "==3.15.2"
 dependencies = [
+    "albumentations==2.0.8",
     "comet-ml==3.58.10",
-    "datasets==5.1.0",
+    "ensemble-boxes==1.0.10",
     "hydra-core==1.3.8",
+    "iterative-stratification==0.1.9",
     "matplotlib==3.11.2",
     "numpy==2.5.4",
-    "safetensors==0.8.0",
     "torch==2.15.0",
-    "torchmetrics==1.9.0",
     "torchvision==0.29.2",
     "tqdm==4.70.1",
 ]
 
 [dependency-groups]
+download = [
+    "kagglehub==1.0.3",
+    "pandas==3.1.0",
+]
 dev = [
     "ipykernel==7.4.0",
     "ipywidgets==8.1.9",

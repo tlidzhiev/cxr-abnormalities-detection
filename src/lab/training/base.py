@@ -161,7 +161,8 @@ class BaseTrainer(BaseRunner):
         self.train_loader = dataloaders['train']
         # Keep one iterator so evaluation windows do not restart the training sampler
         self._train_iter = iter(inf_loop(self.train_loader))
-        self.eval_dataloaders = {k: v for k, v in dataloaders.items() if k != 'train'}
+        # 'test' has no ground truth: it is only for inference
+        self.eval_dataloaders = {k: v for k, v in dataloaders.items() if k not in ('train', 'test')}
 
         self.global_step = 0  # optimizer steps done
         # Reference point of the 'steps_per_sec' of the train logs
