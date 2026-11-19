@@ -380,7 +380,9 @@ class BaseTrainer(BaseRunner):
             batch = self.process_batch(batch, part)
 
         for met in self.metrics['inference']:
-            self.eval_metric_tracker.update(met.name, met.compute())
+            # All the values of the metric (e.g. mAP and the AP of each class)
+            for name, value in met.compute_all().items():
+                self.eval_metric_tracker.update(name, value)
             met.reset()
         elapsed = time.perf_counter() - start_time
 
