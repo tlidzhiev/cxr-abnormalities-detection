@@ -1,0 +1,90 @@
+from collections.abc import Generator
+from itertools import repeat
+
+import torch
+from hydra.utils import instantiate
+from omegaconf import DictConfig
+from torch import nn
+from torch.utils.data import DataLoader, IterableDataset
+
+from lab.utils.init import set_worker_seed
+
+
+def inf_loop(dataloader: DataLoader) -> Generator:
+    """
+    Cycle over the dataloader endlessly (for iteration-based training).
+    """
+    for loader in repeat(dataloader):
+        yield from loader
+
+
+def _to_device(batch_transforms: dict[str, dict[str, nn.Sequential]], device: str) -> None:
+    """
+    Move batch transforms to the device.
+
+    Batch transforms must be nn.Module: use nn.Sequential in the config
+    (not torchvision.Compose).
+    """
+    for transforms in batch_transforms.values():
+        if transforms is not None:
+            for tensor_name, transform in transforms.items():
+                transforms[tensor_name] = transform.to(device)
+
+
+def get_dataloaders(
+    config: DictConfig, device: str
+) -> tuple[
+    dict[str, DataLoader],
+    dict[str, dict[str, nn.Sequential]],
+]:
+    """
+    Create dataloaders for each dataset partition, and the batch transforms.
+
+    Parameters
+    ----------
+    config : DictConfig
+        Hydra experiment config.
+    device : str
+        Device for the batch transforms.
+
+    Returns
+    -------
+    dataloaders : dict[str, DataLoader]
+        Dataloader of each partition.
+    batch_transforms : dict[str, dict[str, nn.Sequential]]
+        Transforms applied to the whole batch, by tensor name.
+    """
+
+    batch_transforms = instantiate(config.transforms.batch_transforms)
+    _to_device(batch_transforms, device)
+    datasets = instantiate(config.dataset)
+
+    dataloaders = {}
+    for partition in config.dataset:
+        if partition not in ['train', 'val', 'test'] or config.dataloader.get(partition) is None:
+            continue
+
+        dataset = datasets[partition]
+
+        if not isinstance(dataset, IterableDataset):
+            batch_size = config.dataloader[partition].batch_size
+            assert batch_size <= len(dataset), (
+                f'The batch size ({batch_size}) cannot '
+                f'be larger than the dataset length ({len(dataset)})'
+            )
+
+        is_train = partition == 'train'
+        num_workers = config.dataloader[partition].get('num_workers', 0)
+        dataloaders[partition] = DataLoader(
+            dataset,
+            **config.dataloader[partition],
+            num_workers=num_workers,
+            # an iterable dataset defines its own order
+            shuffle=is_train and not isinstance(dataset, IterableDataset),
+            drop_last=is_train,
+            pin_memory=torch.device(device).type == 'cuda',
+            persistent_workers=num_workers > 0,
+            worker_init_fn=set_worker_seed,
+        )
+
+    return dataloaders, batch_transforms

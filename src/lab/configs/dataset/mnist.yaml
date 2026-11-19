@@ -1,0 +1,11 @@
+train:
+  _target_: lab.dataset.mnist.MNISTDataset
+  split: train
+  shuffle_index: true
+  instance_transforms: ${transforms.instance_transforms.train}
+
+test:
+  _target_: lab.dataset.mnist.MNISTDataset
+  split: test
+  shuffle_index: false
+  instance_transforms: ${transforms.instance_transforms.inference}

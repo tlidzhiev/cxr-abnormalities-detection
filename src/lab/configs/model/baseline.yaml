@@ -1,0 +1,4 @@
+_target_: lab.model.baseline.BaselineModel
+num_features: 784 # 28 * 28 for MNIST
+num_classes: 10
+hidden_dim: 128

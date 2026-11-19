@@ -1,0 +1,52 @@
+hydra:
+  run:
+    dir: ${writer.log_dir}
+
+defaults:
+  - _self_
+  - dataset: mnist
+  - dataloader: default
+  - transforms: default
+  - model: baseline
+  - criterion: ce
+  - metrics: default
+  - optimizer: default
+  - lr_scheduler: cosine
+  - writer: cometml
+
+trainer:
+  # Steps
+  total_steps: 10000 # total optimizer steps
+  eval_every_steps: 1000 # validation frequency; also defines metric reporting windows
+  checkpoint_every_steps: 1000 # periodic checkpoint frequency
+  grad_accum_steps: 1 # batches per optimizer step (effective batch size = batch_size * grad_accum_steps)
+
+  # Logging
+  log_step: 100 # optimizer steps between train logs
+  log_images: 16 # images in the logged grid of predictions
+  debug: false # true to measure data_time / step_time (synchronizes CUDA at each step)
+
+  # Checkpoints
+  checkpoint_dir: ${writer.log_dir}/checkpoints
+  resume_from: null # null or checkpoint file name inside checkpoint_dir (*.pth)
+  from_pretrained: null # null or path to the model checkpoint (*.pth file)
+  only_best: false # true to save only model-best.pth (requires monitor)
+  monitor: "off" # "off" or "max/min metric_name"
+  early_stop: null # evaluations without improvement before stopping
+
+  # Hardware and numerics
+  device: "auto" # device name or "auto"
+  device_tensors: ["img", "label"]
+  use_bfloat16: false
+  use_tf32: true # TF32 for fp32 matmul/conv on Ampere+ (faster, ~1e-3 rel. error); false = full fp32
+  compile: null # null (eager) or torch.compile kwargs, e.g. {mode: default, fullgraph: false}
+  skip_oom: true
+  max_grad_norm: null
+
+  # Run
+  seed: 42
+  override: false # overwrite an existing run dir with the same writer.run_name
+  ema:
+    decay: 0.999
+    update_every: 1
+    warmup_steps: 0 # steps with linearly increasing decay (0 = disabled)

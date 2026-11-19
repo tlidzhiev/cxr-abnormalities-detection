@@ -1,0 +1,11 @@
+device: "auto"
+train:
+  - _target_: lab.metrics.accuracy.AccuracyMetric
+    name: AccuracyMetric
+    num_classes: 10
+    device: ${metrics.device}
+inference:
+  - _target_: lab.metrics.accuracy.AccuracyMetric
+    name: AccuracyMetric
+    num_classes: 10
+    device: ${metrics.device}
