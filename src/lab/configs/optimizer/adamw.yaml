@@ -1,0 +1,3 @@
+_target_: torch.optim.AdamW
+lr: 1.0e-4 # learning rate of the heads; the ViT blocks get less (see model.layer_lr_decay)
+weight_decay: 0.1 # not applied to the biases, norms and position / CLS tokens (see the model param groups)
