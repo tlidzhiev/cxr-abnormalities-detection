@@ -5,12 +5,13 @@
   <a href="#installation">Installation</a> •
   <a href="#data">Data</a> •
   <a href="#how-to-use">How To Use</a> •
+  <a href="#results">Results</a> •
   <a href="#credits">Credits</a>
 </p>
 
 ## About
 
-Detection of abnormalities on chest X-ray images (VinBigData / VinDr-CXR, 14 finding classes). Every image is annotated by three radiologists, so the boxes are merged with Weighted Boxes Fusion before training and the box score is the fraction of radiologists who agree on it. The detector is a torchvision Faster R-CNN v2 (ResNet-50 FPN) initialized from the COCO weights and fine-tuned with k-fold cross-validation. The metric is mAP@0.4, as in the competition.
+Detection of abnormalities on chest X-ray images (VinBigData / VinDr-CXR, 14 finding classes) for the Kaggle competition [VinBigData Chest X-ray Abnormalities Detection](https://www.kaggle.com/competitions/vinbigdata-chest-xray-abnormalities-detection/overview). Every image is annotated by three radiologists, so the boxes are merged with Weighted Boxes Fusion before training and the box score is the fraction of radiologists who agree on it. The detector is a torchvision Faster R-CNN v2 (ResNet-50 FPN) initialized from the COCO weights and fine-tuned with k-fold cross-validation. The metric is mAP@0.4, as in the competition.
 
 ## Installation
 
@@ -106,6 +107,12 @@ uv run python scripts/make_submission.py \
 Use `'inferencer.partitions=[val,test]'` to also get the validation metrics of the fold. Models of
 different architectures or seeds can be mixed (`--weights` sets their weights); see
 `scripts/make_submission.py --help` for the fusion options.
+
+## Results
+
+| Model | Public LB | Private LB | Report |
+|---|---:|---:|---|
+| Faster R-CNN v2 (ResNet-50 FPN), 5-fold WBF ensemble | 0.235 | 0.240 | [baseline_frcnn](reports/baseline_frcnn.md) |
 
 ## Credits
 
