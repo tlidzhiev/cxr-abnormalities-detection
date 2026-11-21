@@ -74,6 +74,10 @@ class RadDinoBackbone(nn.Module):
     'feature_stride' of the input image (e.g. 512 -> 448 -> 32 x 32 tokens for stride 16,
     512 -> 896 -> 64 x 64 tokens for stride 8). The pyramid is built from the last layer at the
     strides 4, 8, 16, 32 (keys '0'-'3') and 64 ('pool'), like the ResNet-50 FPN.
+
+    'freeze_blocks' > 0 freezes the patch / position embeddings and the first 'freeze_blocks'
+    ViT blocks (no gradients, no drop path): with the layer-wise LR decay they barely change
+    anyway, and the backward pass and the activations of this part are not computed / kept.
     """
 
     def __init__(
@@ -84,6 +88,7 @@ class RadDinoBackbone(nn.Module):
         out_channels: int = 256,
         drop_path_rate: float = 0.1,
         grad_checkpointing: bool = False,
+        freeze_blocks: int = 0,
     ) -> None:
         super().__init__()
         config = Dinov2Config.from_pretrained(model_name)
@@ -97,6 +102,7 @@ class RadDinoBackbone(nn.Module):
 
         self.patch_size: int = config.patch_size  # ty:ignore[invalid-assignment]
         self.num_layers: int = config.num_hidden_layers
+        self._freeze(freeze_blocks)
         self.feature_stride = feature_stride
         self.out_channels = out_channels  # read by torchvision FasterRCNN
 
@@ -105,6 +111,20 @@ class RadDinoBackbone(nn.Module):
             _pyramid_level(hidden_size, out_channels, feature_stride / stride)
             for stride in _PYRAMID_STRIDES
         )
+
+    def _freeze(self, num_blocks: int) -> None:
+        """
+        Freeze the embeddings and the first 'num_blocks' ViT blocks; their drop path is removed,
+        so the frozen part is a deterministic feature extractor.
+        """
+        if not 0 <= num_blocks <= self.num_layers:
+            raise ValueError(f'freeze_blocks must be in [0, {self.num_layers}], got {num_blocks}.')
+        if num_blocks == 0:
+            return
+        self.vit.embeddings.requires_grad_(False)
+        for block in self.vit.encoder.layer[:num_blocks]:
+            block.requires_grad_(False)
+            block.drop_path = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
         h, w = x.shape[-2:]
@@ -138,6 +158,7 @@ class RadDinoFasterRCNNModel(BaseModel):
         feature_stride: int = 16,
         drop_path_rate: float = 0.1,
         grad_checkpointing: bool = False,
+        freeze_blocks: int = 0,
         score_thresh: float = 0.001,
         max_detections: int = 300,
         small_anchors: bool = False,
@@ -154,6 +175,7 @@ class RadDinoFasterRCNNModel(BaseModel):
             feature_stride=feature_stride,
             drop_path_rate=drop_path_rate,
             grad_checkpointing=grad_checkpointing,
+            freeze_blocks=freeze_blocks,
         )
         self.num_vit_layers = backbone.num_layers
 

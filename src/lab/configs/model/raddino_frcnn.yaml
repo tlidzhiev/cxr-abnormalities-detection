@@ -6,6 +6,7 @@ pretrained: true # false: random ViT (only the architecture), e.g. for inference
 feature_stride: 16 # stride of the ViT token grid on the image: 16 -> ViT input img_size * 14/16 (448 for 512), 8 -> img_size * 14/8 (896, 4x tokens)
 drop_path_rate: 0.1 # stochastic depth of the ViT blocks
 grad_checkpointing: false # true: recompute the ViT activations in backward (less memory, e.g. for feature_stride 8)
+freeze_blocks: 0 # freeze the embeddings and the first N of the 12 ViT blocks (no backward through them), e.g. 6
 score_thresh: 0.001
 max_detections: 300
 small_anchors: true # anchors 16-256 instead of 32-512: small nodules on 512 px images
